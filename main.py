@@ -21,8 +21,8 @@ import UNets
 
 Data Architecture:
 
-    x: tensor of input images dim batchSize x in_channels x inputDim x inputDim
-    y: tensor of labels dim batchSize x classes x inputDim x inputDim 
+    x: tensor of input images dim [batchSize, in_channels, inputDim, inputDim]
+    y: tensor of labels dim [batchSize, classes, inputDim, inputDim]
     loss: class balanced loss computed with lossFunc 
 
 """
