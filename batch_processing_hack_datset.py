@@ -29,8 +29,9 @@ warnings.filterwarnings("ignore")
 # ============================================================================
 
 # I/O Settings
-INPUT_FOLDER = '/Users/vnpawan/Downloads/MoWSSe hack dataset/QuaternaryAlloyMoWSSe'  # Folder containing .dm3 files
-OUTPUT_ROOT = '/Users/vnpawan/Downloads/atom_analysis_results_full'
+INPUT_FOLDER = '/Users/George/Desktop/PhD/ML/Microscopy Hackathon 2025/QuaternaryAlloyMoWSSe-20251216T170946Z-1-001/testfile'  # Folder containing .dm3 files
+# INPUT_FOLDER = '/Users/George/Desktop/PhD/ML/Microscopy Hackathon 2025/QuaternaryAlloyMoWSSe-20251216T170946Z-1-001/QuaternaryAlloyMoWSSe'  # Folder containing .dm3 files
+OUTPUT_ROOT = '/Users/George/Desktop/PhD/ML/Microscopy Hackathon 2025/QuaternaryAlloyMoWSSe-20251216T170946Z-1-001/atom-analysis-test'
 
 # Image Enhancement Parameters
 CLAHE_CLIP_LIMIT = 0.03
@@ -38,8 +39,8 @@ CLAHE_TILE_SIZE = 8
 GAUSSIAN_BLUR_SIGMA = 1
 
 # Atom Detection Parameters
-PEAK_RADIUS = 3
-PEAK_THRESHOLD = 0.1
+PEAK_RADIUS = 2
+PEAK_THRESHOLD = 0.02
 
 # Nearest Neighbor Parameters
 N_NEAREST_NEIGHBORS = 3
@@ -153,13 +154,20 @@ def calculate_neighbor_angles(atoms, neighbor_indices_list):
             # Convert to degrees and normalize to [0, 360)
             angle_deg = np.degrees(angle)
             if angle_deg < 0:
-                angle_deg += 360
+                # angle_deg += 360
+                angle_deg = -1 * angle_deg
+            if angle_deg > 180:
+                angle_deg = 360-angle_deg
             return angle_deg
 
         angle2 = angle_between_vectors(vec1, vec2)
         angle3 = angle_between_vectors(vec1, vec3)
 
+        # remainderangle = 360 - angle2 - angle3 
+        # sortedangles = np.sort(np.array([angle2, angle3, remainderangle]))
+        # angles_list.append([sortedangles[0], sortedangles[1]])
         angles_list.append([angle2, angle3])
+
 
     return angles_list
 
