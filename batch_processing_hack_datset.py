@@ -13,7 +13,9 @@ import glob
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Circle
-from skimage.feature import peak_local_max
+from skimage.feature import peak_local_max, blob_dog
+from skimage.filters import gaussian
+from scipy.ndimage import generic_filter
 from scipy import ndimage
 from scipy.spatial import distance_matrix
 import hyperspy.api as hs
@@ -29,18 +31,21 @@ warnings.filterwarnings("ignore")
 # ============================================================================
 
 # I/O Settings
-INPUT_FOLDER = '/Users/George/Desktop/PhD/ML/Microscopy Hackathon 2025/QuaternaryAlloyMoWSSe-20251216T170946Z-1-001/testfile'  # Folder containing .dm3 files
-# INPUT_FOLDER = '/Users/George/Desktop/PhD/ML/Microscopy Hackathon 2025/QuaternaryAlloyMoWSSe-20251216T170946Z-1-001/QuaternaryAlloyMoWSSe'  # Folder containing .dm3 files
-OUTPUT_ROOT = '/Users/George/Desktop/PhD/ML/Microscopy Hackathon 2025/QuaternaryAlloyMoWSSe-20251216T170946Z-1-001/atom-analysis-test'
+# INPUT_FOLDER = '/Users/George/Desktop/PhD/ML/Microscopy Hackathon 2025/QuaternaryAlloyMoWSSe-20251216T170946Z-1-001/testfile'  # Folder containing .dm3 files
+INPUT_FOLDER = '/Users/George/Desktop/PhD/ML/Microscopy Hackathon 2025/QuaternaryAlloyMoWSSe-20251216T170946Z-1-001/QuaternaryAlloyMoWSSe'  # Folder containing .dm3 files
+OUTPUT_ROOT = '/Users/George/Desktop/PhD/ML/Microscopy Hackathon 2025/QuaternaryAlloyMoWSSe-20251216T170946Z-1-001/atom-analysis-DOG'
 
 # Image Enhancement Parameters
 CLAHE_CLIP_LIMIT = 0.03
 CLAHE_TILE_SIZE = 8
 GAUSSIAN_BLUR_SIGMA = 1
+BKGD_NORMALIZATION_SIZE = 15
 
 # Atom Detection Parameters
 PEAK_RADIUS = 2
 PEAK_THRESHOLD = 0.02
+MIN_SIGMA = 32 #min stdev of a gaussian to fit on an atom, picometers
+MAX_SIGMA = 50 #max stdev of a gaussian to fit on an atom, picometers
 
 # Nearest Neighbor Parameters
 N_NEAREST_NEIGHBORS = 3
@@ -83,11 +88,26 @@ def enhance_image(image):
     img_blur = ndimage.gaussian_filter(img_clahe, GAUSSIAN_BLUR_SIGMA)
     return (img_blur - img_blur.min()) / (img_blur.max() - img_blur.min())
 
+def normalize_bkgd(image, size):
+    eps = 1e-6
+    local_std = generic_filter(image, np.std, size=15)
+    normalized = image / (local_std + eps)
+    return normalized
 
-def detect_atoms(image, radius, threshold):
+# def detect_atoms(image, radius, threshold):
+#     """Detect atom positions using peak detection"""
+#     out = peak_local_max(image, min_distance=radius,
+#                           threshold_rel=threshold, exclude_border=True)
+#     print(out)
+#     return out
+
+
+def detect_atoms(image, min_sigma, max_sigma, threshold):
     """Detect atom positions using peak detection"""
-    return peak_local_max(image, min_distance=radius,
-                          threshold_rel=threshold, exclude_border=True)
+    out = blob_dog(image, min_sigma=min_sigma, max_sigma=max_sigma,
+                          threshold=threshold, exclude_border=True)
+    return out
+
 
 
 def find_k_nearest_neighbors(atoms, k=3):
@@ -213,7 +233,7 @@ def save_all_plots(output_folder, filename_base, image, image_enhanced, atoms,
     fig, ax = plt.subplots(1, 1, figsize=(10, 10), dpi=FIGURE_DPI)
     ax.imshow(image_enhanced, cmap='gray')
     for a in atoms:
-        ax.add_patch(Circle((a[1], a[0]), radius=PEAK_RADIUS, color='red', fill=False))
+        ax.add_patch(Circle((a[1], a[0]), radius=2*a[2], color='red', fill=False))
     ax.set_title(f"Detected {len(atoms)} Atoms")
     ax.axis('off')
     plt.tight_layout()
@@ -386,11 +406,15 @@ def process_single_file(file_path, output_base_folder):
     print(f"  > Saved original image: {filename_no_ext}_original.png")
 
     # Pipeline
-    print(f"  > Enhancing image...")
-    image_enhanced = enhance_image(image)
+    image_enhanced = image
+    # print(f"  > Enhancing image...")
+    # image_enhanced = enhance_image(image)
+
+    print(f"  > Normalizing image")
+    image_enhanced = normalize_bkgd(image_enhanced, BKGD_NORMALIZATION_SIZE)
 
     print(f"  > Detecting atoms...")
-    atoms = detect_atoms(image_enhanced, PEAK_RADIUS, PEAK_THRESHOLD)
+    atoms = detect_atoms(image_enhanced, MIN_SIGMA / cal_pm, MAX_SIGMA / cal_pm, PEAK_THRESHOLD)
     print(f"  > Detected {len(atoms)} atoms")
 
     if len(atoms) < 5:
