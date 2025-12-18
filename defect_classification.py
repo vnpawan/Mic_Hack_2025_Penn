@@ -10,12 +10,17 @@ import hyperspy.api as hs
 import cv2
 from scipy import ndimage
 
+import time
+
+# Record the start time
+start_time = time.perf_counter()
+
 # ----------------------------
 # Paths
 # ----------------------------
 csv_root = Path("/Users/cychen/Downloads/atom-analysis-DOG")
 dm3_root = Path("/Users/cychen/Documents/QuaternaryAlloyMoWSSe")
-output_root = Path("/Users/cychen/Documents/classification_DOG")
+output_root = Path("/Users/cychen/Documents/classification_DOG_25-40-40")
 output_root.mkdir(parents=True, exist_ok=True)
 
 # ----------------------------
@@ -27,7 +32,7 @@ GAUSSIAN_BLUR_SIGMA = 1.0
 
 # Manual Calibration Overrides (filename without extension : calibration in nm/px)
 MANUAL_CALIBRATIONS = {
-    '3D Stack1': 0.0156,
+    '3D Stack1': 0.03125,
     '3D Stack2': 0.0156,
     '3D Stack3': 0.0156,
     '3D Stack4': 0.0156,
@@ -197,24 +202,24 @@ for subdir in (p for p in csv_root.rglob("*") if p.is_dir()):
     print(f"  > Saved enhanced image: {out_path}")
 
     # ---- REQUIRED: thresholds (in PIXELS) ----
-    a_px = df["Mean_Distance_px"].median()
-    # a_px = 0.183 / cal_nm_per_px
-    eps_px = 0.2 * a_px
+    # a_px = df["Mean_Distance_px"].median()
+    a_px = 0.183 / cal_nm_per_px
+    eps_px = 0.25 * a_px
     # eps_angle = 20.0
     
     # for interstitial
-    delta_px = 0.5 * a_px
+    delta_px = 0.4 * a_px
     
     # for vacancy: how much larger than a counts as ">> a"
-    vac_delta_px = 0.5 * a_px   # tune this
+    vac_delta_px = 0.4 * a_px   # tune this
     
     # ---- Pull columns as numpy arrays ----
-    x = df["X_Position_px"]
-    y = df["Y_Position_px"]
+    x = df["X_Position_px"].to_numpy(float)
+    y = df["Y_Position_px"].to_numpy(float)
     
-    l1 = df["Distance_NN1_px"]
-    l2 = df["Distance_NN2_px"]
-    l3 = df["Distance_NN3_px"]
+    l1 = df["Distance_NN1_px"].to_numpy(float)
+    l2 = df["Distance_NN2_px"].to_numpy(float)
+    l3 = df["Distance_NN3_px"].to_numpy(float)
     
     ang2 = df["Angle_to_NN2_deg"].to_numpy(float)
     ang3 = df["Angle_to_NN3_deg"].to_numpy(float)
@@ -357,6 +362,39 @@ for subdir in (p for p in csv_root.rglob("*") if p.is_dir()):
     print(f"  > Saved bar chart: {out_bar}")
     print(f"  > Saved histogram: {out_hist}")
 
+    # ----------------------------
+    # Save per-atom classification CSV (5 classes as float)
+    # ----------------------------
+    defect_class = np.full(len(df), np.nan, dtype=float)
+    
+    # Assign in order (mutually exclusive by your mask construction)
+    defect_class[no_defect] = 1.0
+    defect_class[interstitial] = 2.0
+    defect_class[one_adjacent_vacancy] = 3.0
+    defect_class[two_adjacent_vacancy] = 4.0
+    defect_class[three_adjacent_vacancy] = 5.0
+    defect_class[other] = 6.0
+    
+    # If you truly want ONLY classes 1–5 in the output, map "other" to NaN (kept as NaN above).
+    # If you instead want to force everything into 1–5, tell me what rule should split "other".
+    
+    out_class_df = pd.DataFrame({
+        "Atom_Index": df["Atom_Index"].to_numpy(),
+        "Y_Position_px": df["Y_Position_px"].to_numpy(float),
+        "X_Position_px": df["X_Position_px"].to_numpy(float),
+        "Defect_Class": defect_class,
+    })
+    
+    out_class_csv = out_dir / f"{subdir.name}_atom_defect_class.csv"
+    out_class_df.to_csv(out_class_csv, index=False)
+    print(f"  > Saved atom class CSV: {out_class_csv}")
 
     del df
     del image_enhanced
+
+# Record the end time
+end_time = time.perf_counter()
+
+# Calculate and print the elapsed time
+elapsed_time = end_time - start_time
+print(f"Execution time: {elapsed_time:.4f} seconds")
