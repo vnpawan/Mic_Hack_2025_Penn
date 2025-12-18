@@ -31,10 +31,10 @@ warnings.filterwarnings("ignore")
 # ============================================================================
 
 # I/O Settings
-INPUT_FOLDER = '/Users/George/Desktop/PhD/ML/Microscopy Hackathon 2025/QuaternaryAlloyMoWSSe-20251216T170946Z-1-001/testfile'  # Folder containing .dm3 files
-OUTPUT_ROOT = '/Users/George/Desktop/PhD/ML/Microscopy Hackathon 2025/QuaternaryAlloyMoWSSe-20251216T170946Z-1-001/atom-analysis-test'
-# INPUT_FOLDER = '/Users/George/Desktop/PhD/ML/Microscopy Hackathon 2025/QuaternaryAlloyMoWSSe-20251216T170946Z-1-001/QuaternaryAlloyMoWSSe'  # Folder containing .dm3 files
-# OUTPUT_ROOT = '/Users/George/Desktop/PhD/ML/Microscopy Hackathon 2025/QuaternaryAlloyMoWSSe-20251216T170946Z-1-001/atom-analysis-DOG'
+# INPUT_FOLDER = '/Users/George/Desktop/PhD/ML/Microscopy Hackathon 2025/QuaternaryAlloyMoWSSe-20251216T170946Z-1-001/testfile'  # Folder containing .dm3 files
+# OUTPUT_ROOT = '/Users/George/Desktop/PhD/ML/Microscopy Hackathon 2025/QuaternaryAlloyMoWSSe-20251216T170946Z-1-001/atom-analysis-test'
+INPUT_FOLDER = '/Users/George/Desktop/PhD/ML/Microscopy Hackathon 2025/QuaternaryAlloyMoWSSe-20251216T170946Z-1-001/QuaternaryAlloyMoWSSe'  # Folder containing .dm3 files
+OUTPUT_ROOT = '/Users/George/Desktop/PhD/ML/Microscopy Hackathon 2025/QuaternaryAlloyMoWSSe-20251216T170946Z-1-001/atom-analysis-DOG'
 
 
 # Image Enhancement Parameters
@@ -120,27 +120,16 @@ def find_k_nearest_neighbors(atoms, k=3):
     if len(atoms) < k + 1:
         return None
 
-
+    dist_matrix_calc = distance_matrix(atoms, atoms)
+    np.fill_diagonal(dist_matrix_calc, np.inf)
 
     neighbor_indices_list = []
     neighbor_distances_list = []
     avg_distances_list = []
 
     for i in range(len(atoms)):
-        # print(np.shape(atoms))
-        # print(np.shape(atoms[i]))
-        # print(atoms[i])
-
-        center_atom = atoms[i]
-        delta = 0.05 * np.max(atoms[:,0])
-        reduced_atoms = atoms[(center_atom[0] - delta <= atoms[:,0]) & (center_atom[0] + delta >= atoms[:,0])]
-        dist_matrix_calc = distance_matrix([center_atom], reduced_atoms)
-
-        # np.fill_diagonal(dist_matrix_calc, np.inf)
-        nearest_idx = np.argsort(dist_matrix_calc)[:k]
-        # print(np.shape(dist_matrix_calc))
-        # print(dist_matrix_calc[0,nearest_idx])
-        nearest_dist = dist_matrix_calc[0,nearest_idx]
+        nearest_idx = np.argsort(dist_matrix_calc[i])[:k]
+        nearest_dist = dist_matrix_calc[i][nearest_idx]
 
         neighbor_indices_list.append(nearest_idx)
         neighbor_distances_list.append(nearest_dist)
@@ -437,7 +426,7 @@ def process_single_file(file_path, output_base_folder):
 
     # Calculate nearest neighbors
     print(f"  > Finding {N_NEAREST_NEIGHBORS} nearest neighbors...")
-    nn_res = find_k_nearest_neighbors(atoms[:,:2], k=N_NEAREST_NEIGHBORS)
+    nn_res = find_k_nearest_neighbors(atoms, k=N_NEAREST_NEIGHBORS)
 
     if nn_res is None:
         print(f"  > Not enough atoms for neighbor analysis. Skipping.")
