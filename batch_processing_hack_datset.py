@@ -18,6 +18,8 @@ from skimage.filters import gaussian
 from scipy.ndimage import generic_filter
 from scipy import ndimage
 from scipy.spatial import distance_matrix
+from scipy.spatial import KDTree
+
 import hyperspy.api as hs
 import cv2
 import csv
@@ -114,31 +116,37 @@ def detect_atoms(image, min_sigma, max_sigma, threshold):
 
 def find_k_nearest_neighbors(atoms, k=3):
     """
-    Find k nearest neighbors for each atom
-    Returns neighbor indices, distances, and average distances
+    Find k nearest neighbors using KD-tree.
+    
+    Parameters
+    ----------
+    atoms : ndarray, shape (N, 2)
+    k : int
+        Number of neighbors (excluding self)
+    
+    Returns
+    -------
+    dict with:
+        neighbor_indices : ndarray (N, k)
+        neighbor_distances : ndarray (N, k)
+        avg_distances : ndarray (N,)
     """
     if len(atoms) < k + 1:
         return None
-
-    dist_matrix_calc = distance_matrix(atoms, atoms)
-    np.fill_diagonal(dist_matrix_calc, np.inf)
-
-    neighbor_indices_list = []
-    neighbor_distances_list = []
-    avg_distances_list = []
-
-    for i in range(len(atoms)):
-        nearest_idx = np.argsort(dist_matrix_calc[i])[:k]
-        nearest_dist = dist_matrix_calc[i][nearest_idx]
-
-        neighbor_indices_list.append(nearest_idx)
-        neighbor_distances_list.append(nearest_dist)
-        avg_distances_list.append(nearest_dist.mean())
-
+    
+    tree = KDTree(atoms)
+    
+    # Query k+1 because first result is the point itself (distance=0)
+    distances, indices = tree.query(atoms, k=k+1, workers=-1)
+    
+    # Strip self-matches (first column)
+    neighbor_distances = distances[:, 1:]
+    neighbor_indices = indices[:, 1:]
+    
     return {
-        'neighbor_indices': neighbor_indices_list,
-        'neighbor_distances': neighbor_distances_list,
-        'avg_distances': np.array(avg_distances_list)
+        'neighbor_indices': neighbor_indices,
+        'neighbor_distances': neighbor_distances,
+        'avg_distances': neighbor_distances.mean(axis=1)
     }
 
 
