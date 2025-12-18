@@ -134,7 +134,7 @@ def save_class_histograms(mean_distance_pm, class_items, bins, title, out_path):
 
     for name, mask, color in class_items:
         data = mean_distance_pm[mask]
-        data = data[np.isfinite(data)]  # 防 nan/inf
+        data = data[np.isfinite(data)]
         if data.size == 0:
             continue
 
@@ -143,7 +143,7 @@ def save_class_histograms(mean_distance_pm, class_items, bins, title, out_path):
             bins=bins,
             histtype="step",
             linewidth=1.5,
-            color=color,                 # 直接指定顏色（就不需要改 lines[-1]）
+            color=color,
             label=f"{name} (N={data.size})"
         )
 
