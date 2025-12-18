@@ -61,7 +61,7 @@ INTENSITY_RADIUS = 3
 
 # Manual Calibration Overrides (filename without extension : calibration in nm/px)
 MANUAL_CALIBRATIONS = {
-    '3D Stack1': 0.0156,
+    '3D Stack1': 0.03125,
     '3D Stack2': 0.0156,
     '3D Stack3': 0.0156,
     '3D Stack4': 0.0156,
