@@ -20,6 +20,8 @@ from scipy.ndimage import generic_filter
 from scipy import ndimage
 from scipy.spatial import distance_matrix
 from scipy.spatial import KDTree
+from TEMDepthEstimator import TEMDepthEstimator
+depth_estimator = TEMDepthEstimator()
 
 import hyperspy.api as hs
 import cv2
@@ -63,6 +65,9 @@ N_NEAREST_NEIGHBORS = 3
 # Visualization Parameters
 FIGURE_DPI = 150
 INTENSITY_RADIUS = 3
+
+MIN_AREA_PERCENTAGE = 2.5  # Adjust this value as needed
+DEPTH_THRESHOLD = 0.85  # Depth threshold for contour detection
 
 
 # Manual Calibration Overrides (filename without extension : calibration in nm/px)
@@ -328,6 +333,48 @@ def save_all_plots(output_folder, filename_base, image, image_enhanced, atoms,
     plt.savefig(os.path.join(output_folder, '05_summary' + filename_base + '.png'))
     plt.close()
 
+def save_depth_contour_visualization(output_folder, filename_base, image_enhanced,
+                                     depth_map, binary_mask, all_contours,
+                                     qualified_contours, threshold, min_area_percentage):
+    """
+    Visualize the depth map and detected contours for debugging
+    """
+    fig, axes = plt.subplots(2, 2, figsize=(16, 16), dpi=FIGURE_DPI)
+
+    # 1. Original enhanced image
+    axes[0, 0].imshow(image_enhanced, cmap='gray')
+    axes[0, 0].set_title('Enhanced Image')
+    axes[0, 0].axis('off')
+
+    # 2. Depth map
+    im = axes[0, 1].imshow(depth_map, cmap='plasma')
+    plt.colorbar(im, ax=axes[0, 1], label='Depth')
+    axes[0, 1].set_title(f'Depth Map (Threshold: {threshold})')
+    axes[0, 1].axis('off')
+
+    # 3. Binary threshold image with ALL contours
+    axes[1, 0].imshow(image_enhanced, cmap='gray', alpha=0.5)
+    # Draw all contours in red
+    contour_img_all = np.zeros_like(image_enhanced)
+    cv2.drawContours(contour_img_all, all_contours, -1, 1, 2)
+    axes[1, 0].imshow(contour_img_all, cmap='Reds', alpha=0.7)
+    axes[1, 0].set_title(f'All Contours (n={len(all_contours)})')
+    axes[1, 0].axis('off')
+
+    # 4. Qualified contours only (after area filtering)
+    axes[1, 1].imshow(image_enhanced, cmap='gray', alpha=0.5)
+    # Draw qualified contours in green, filled
+    contour_img_qualified = np.zeros_like(image_enhanced)
+    cv2.drawContours(contour_img_qualified, qualified_contours, -1, 1, -1)
+    axes[1, 1].imshow(contour_img_qualified, cmap='Greens', alpha=0.7)
+    axes[1, 1].set_title(f'Qualified Contours (>={min_area_percentage}% area, n={len(qualified_contours)})')
+    axes[1, 1].axis('off')
+
+    plt.tight_layout()
+    save_path = os.path.join(output_folder, f'{filename_base}_depth_contours.png')
+    plt.savefig(save_path)
+    plt.close()
+    print(f"  > Saved depth contour visualization: {filename_base}_depth_contours.png")
 
 def save_csv_output(output_folder, filename_base, atoms, nn_results,
                     angles_list, intensities, cal, cal_pm):
@@ -404,6 +451,33 @@ def process_image(image, cal, file_output_folder, filename_no_ext):
     print(f"  > Detecting atoms...")
     atoms = detect_atoms(image_enhanced, MIN_SIGMA / cal_pm, MAX_SIGMA / cal_pm, PEAK_THRESHOLD)
     print(f"  > Detected {len(atoms)} atoms")
+
+    # Filter atoms by depth contours
+    print(f"  > Filtering atoms by depth contours...")
+
+    filtered_atoms, num_contours, contour_area, depth_map, binary_mask, all_contours, qualified_contours = depth_estimator.filter_atoms_by_depth_contours(
+        image_enhanced=image_enhanced,
+        atoms=atoms,
+        threshold=DEPTH_THRESHOLD,
+        min_area_percentage=MIN_AREA_PERCENTAGE
+    )
+    
+    # Save visualization of detected contours
+    if DIAGNOSTIC_PLOTS:
+        save_depth_contour_visualization(
+            file_output_folder,
+            filename_no_ext,
+            image_enhanced,
+            depth_map,
+            binary_mask,
+            all_contours,
+            qualified_contours,
+            DEPTH_THRESHOLD,
+            MIN_AREA_PERCENTAGE
+        )
+
+    # Update atoms with filtered results
+    atoms = filtered_atoms
 
     if len(atoms) < 5:
         print(f"  > Too few atoms ({len(atoms)}). Skipping.")
