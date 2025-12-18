@@ -18,9 +18,9 @@ start_time = time.perf_counter()
 # ----------------------------
 # Paths
 # ----------------------------
-csv_root = Path("/Users/cychen/Downloads/atom-analysis-DOG")
+csv_root = Path("/Users/cychen/Downloads/atom-analysis_Thursday")
 dm3_root = Path("/Users/cychen/Documents/QuaternaryAlloyMoWSSe")
-output_root = Path("/Users/cychen/Documents/classification_DOG_25-40-40")
+output_root = Path("/Users/cychen/Documents/classification_Thursday_25-40-40")
 output_root.mkdir(parents=True, exist_ok=True)
 
 # ----------------------------
@@ -29,6 +29,10 @@ output_root.mkdir(parents=True, exist_ok=True)
 CLAHE_CLIP_LIMIT = 2.0
 CLAHE_TILE_SIZE = 8
 GAUSSIAN_BLUR_SIGMA = 1.0
+
+# Edge filtering (tune if needed)
+EDGE_MARGIN_MULT_A = 1.0   # margin = 3 * a_px (in pixels)
+EDGE_MARGIN_MIN_PX = 10    # at least 10 px
 
 # Manual Calibration Overrides (filename without extension : calibration in nm/px)
 MANUAL_CALIBRATIONS = {
@@ -201,35 +205,48 @@ for subdir in (p for p in csv_root.rglob("*") if p.is_dir()):
     plt.imsave(out_path, image_enhanced, cmap="gray")
     print(f"  > Saved enhanced image: {out_path}")
 
-    # ---- REQUIRED: thresholds (in PIXELS) ----
-    # a_px = df["Mean_Distance_px"].median()
+   # ---- REQUIRED: thresholds (in PIXELS) ----
     a_px = 0.183 / cal_nm_per_px
     eps_px = 0.25 * a_px
-    # eps_angle = 20.0
-    
-    # for interstitial
     delta_px = 0.4 * a_px
-    
-    # for vacancy: how much larger than a counts as ">> a"
-    vac_delta_px = 0.4 * a_px   # tune this
+    vac_delta_px = 0.4 * a_px
     
     # ---- Pull columns as numpy arrays ----
-    x = df["X_Position_px"].to_numpy(float)
-    y = df["Y_Position_px"].to_numpy(float)
+    x_all = df["X_Position_px"].to_numpy(float)
+    y_all = df["Y_Position_px"].to_numpy(float)
     
-    l1 = df["Distance_NN1_px"].to_numpy(float)
-    l2 = df["Distance_NN2_px"].to_numpy(float)
-    l3 = df["Distance_NN3_px"].to_numpy(float)
+    l1_all = df["Distance_NN1_px"].to_numpy(float)
+    l2_all = df["Distance_NN2_px"].to_numpy(float)
+    l3_all = df["Distance_NN3_px"].to_numpy(float)
     
-    ang2 = df["Angle_to_NN2_deg"].to_numpy(float)
-    ang3 = df["Angle_to_NN3_deg"].to_numpy(float)
+    # =========================================================
+    # Edge filtering (BEFORE classification)
+    # =========================================================
+    H, W = image_enhanced.shape[:2]
+    edge_margin_px = int(round(max(EDGE_MARGIN_MULT_A * a_px, EDGE_MARGIN_MIN_PX)))
     
-    # ---- Distance deviations for No Defect (abs) ----
-    dev_l = np.vstack([np.abs(l1 - a_px), np.abs(l2 - a_px), np.abs(l3 - a_px)])
-    dev_l_max = dev_l.max(axis=0)
+    edge_keep = (
+        np.isfinite(x_all) & np.isfinite(y_all) &
+        (x_all >= edge_margin_px) & (x_all < (W - edge_margin_px)) &
+        (y_all >= edge_margin_px) & (y_all < (H - edge_margin_px))
+    )
     
-    # dev_ang = np.vstack([np.abs(ang2 - 120.0), np.abs(ang3 - 120.0)])
-    # dev_ang_max = dev_ang.max(axis=0)
+    keep_idx = np.flatnonzero(edge_keep)
+    n_all = len(df)
+    n_keep = int(keep_idx.size)
+    
+    print(f"  > Edge filter: margin={edge_margin_px}px | kept {n_keep}/{n_all}")
+    
+    if n_keep == 0:
+        print("  > WARNING: no atoms left after edge filtering, skipping dataset.")
+        continue
+    
+    # Work only on kept atoms
+    x = x_all[keep_idx]
+    y = y_all[keep_idx]
+    l1 = l1_all[keep_idx]
+    l2 = l2_all[keep_idx]
+    l3 = l3_all[keep_idx]
     
     # ---- Helper deviations ----
     dev1 = np.abs(l1 - a_px)
@@ -239,11 +256,10 @@ for subdir in (p for p in csv_root.rglob("*") if p.is_dir()):
     # =========================================================
     # Class 1: No Defect (distance-only)
     # =========================================================
-    no_defect = (np.maximum.reduce([dev1, dev2, dev3]) < eps_px)# & (dev_ang_max < eps_angle)
+    no_defect = (np.maximum.reduce([dev1, dev2, dev3]) < eps_px)
     
     # =========================================================
     # Class 2: Interstitial (too short), excludes No Defect
-    # any(li < a - delta)
     # =========================================================
     too_short = np.minimum.reduce([l1, l2, l3]) < (a_px - delta_px)
     interstitial = (~no_defect) & too_short
@@ -251,37 +267,40 @@ for subdir in (p for p in csv_root.rglob("*") if p.is_dir()):
     # =========================================================
     # Class 3: 1 adjacent vacancy, excludes previous classes
     # l1 ~ a AND l2 ~ a AND l3 >> a
-    # (use tight eps on l1,l2; and l3 exceeds a by vac_delta)
     # =========================================================
     near_a_12 = (dev1 < eps_px) & (dev2 < eps_px)
     l3_far = (l3 > (a_px + vac_delta_px))
-    
     one_adjacent_vacancy = (~no_defect) & (~interstitial) & near_a_12 & l3_far
     
     # =========================================================
-    # Class 4: 2 adjacent vacancies, excludes previous classes
+    # Class 4: 2 adjacent vacancies
     # l1 ~ a AND l2 >> a AND l3 >> a
-    # (use tight eps on l1; and l2,l3 exceed a by vac_delta)
     # =========================================================
     near_a_1 = (dev1 < eps_px)
     l2_l3_far = (l2 > (a_px + vac_delta_px)) & (l3 > (a_px + vac_delta_px))
-    
     two_adjacent_vacancy = (~no_defect) & (~interstitial) & (~one_adjacent_vacancy) & near_a_1 & l2_l3_far
     
     # =========================================================
-    # Class 5: 3 adjacent vacancies, excludes previous classes
+    # Class 5: 3 adjacent vacancies
     # l1 >> a AND l2 >> a AND l3 >> a
-    # (l1,l2,l3 exceed a by vac_delta)
     # =========================================================
     l1_l2_l3_far = (l1 > (a_px + vac_delta_px)) & (l2 > (a_px + vac_delta_px)) & (l3 > (a_px + vac_delta_px))
-    
     three_adjacent_vacancy = (~no_defect) & (~interstitial) & (~one_adjacent_vacancy) & (~two_adjacent_vacancy) & l1_l2_l3_far
     
     # =========================================================
-    # Class 6: remaining (everything else not selected)
+    # Other: remaining (kept atoms not in classes 1-5)
     # =========================================================
     other = ~(no_defect | interstitial | one_adjacent_vacancy | two_adjacent_vacancy | three_adjacent_vacancy)
-
+    
+    # ---- Build class_items using FILTERED masks + FILTERED x/y ----
+    class_items = [
+        ("No Defect", no_defect, "green"),
+        ("Interstitial", interstitial, "blue"),
+        ("1 Adjacent Vacancy", one_adjacent_vacancy, "yellow"),
+        ("2 Adjacent Vacancies", two_adjacent_vacancy, "orange"),
+        ("3 Adjacent Vacancies", three_adjacent_vacancy, "red"),
+        ("Others", other, "purple"),
+]
     
     # ---- Plot overlay ----
     out_overlay = out_dir / f"{subdir.name}_no_defect_interstitial_overlay.png"
@@ -331,7 +350,7 @@ for subdir in (p for p in csv_root.rglob("*") if p.is_dir()):
     # 2) Save bar chart of counts per class (title includes total atoms)
     counts = [int(mask.sum()) for _, mask, _ in class_items]
     names  = [name for name, _, _ in class_items]
-    total_atoms = int(len(df))
+    total_atoms = n_keep
     
     out_bar = out_dir / f"{subdir.name}_class_counts_bar.png"
     save_counts_bar_chart(
@@ -343,10 +362,10 @@ for subdir in (p for p in csv_root.rglob("*") if p.is_dir()):
     )
     
     # 3) Histogram of Mean_Distance_pm with same colors as scatter
-    mean_distance_pm = df["Mean_Distance_pm"].to_numpy(float)
+    mean_distance_pm_all = df["Mean_Distance_pm"].to_numpy(float)
+    mean_distance_pm = mean_distance_pm_all[keep_idx]  # IMPORTANT: align with masks
     
-    # shared bins across classes for this dataset
-    # (set a fixed bin count; uses dataset range)
+    # shared bins across classes for this dataset (use kept range)
     bins = np.linspace(np.nanmin(mean_distance_pm), np.nanmax(mean_distance_pm), 60)
     
     out_hist = out_dir / f"{subdir.name}_Mean_Distance_pm_hist_by_class.png"
@@ -354,7 +373,7 @@ for subdir in (p for p in csv_root.rglob("*") if p.is_dir()):
         mean_distance_pm=mean_distance_pm,
         class_items=class_items,
         bins=bins,
-        title=f"{subdir.name} Mean_Distance_pm by class (total atoms = {total_atoms})",
+        title=f"{subdir.name} Mean_Distance_pm by class (total atoms = {n_keep})",
         out_path=out_hist
     )
     
@@ -363,11 +382,11 @@ for subdir in (p for p in csv_root.rglob("*") if p.is_dir()):
     print(f"  > Saved histogram: {out_hist}")
 
     # ----------------------------
-    # Save per-atom classification CSV (5 classes as float)
+    # Save per-atom classification CSV (6 classes as float)
     # ----------------------------
-    defect_class = np.full(len(df), np.nan, dtype=float)
-    
-    # Assign in order (mutually exclusive by your mask construction)
+    df_kept = df.iloc[keep_idx].copy()
+
+    defect_class = np.full(n_keep, np.nan, dtype=float)
     defect_class[no_defect] = 1.0
     defect_class[interstitial] = 2.0
     defect_class[one_adjacent_vacancy] = 3.0
@@ -375,13 +394,10 @@ for subdir in (p for p in csv_root.rglob("*") if p.is_dir()):
     defect_class[three_adjacent_vacancy] = 5.0
     defect_class[other] = 6.0
     
-    # If you truly want ONLY classes 1–5 in the output, map "other" to NaN (kept as NaN above).
-    # If you instead want to force everything into 1–5, tell me what rule should split "other".
-    
     out_class_df = pd.DataFrame({
-        "Atom_Index": df["Atom_Index"].to_numpy(),
-        "Y_Position_px": df["Y_Position_px"].to_numpy(float),
-        "X_Position_px": df["X_Position_px"].to_numpy(float),
+        "Atom_Index": df_kept["Atom_Index"].to_numpy(),
+        "Y_Position_px": df_kept["Y_Position_px"].to_numpy(float),
+        "X_Position_px": df_kept["X_Position_px"].to_numpy(float),
         "Defect_Class": defect_class,
     })
     
