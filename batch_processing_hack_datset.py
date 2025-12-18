@@ -32,18 +32,20 @@ warnings.filterwarnings("ignore")
 
 # I/O Settings
 # INPUT_FOLDER = '/Users/George/Desktop/PhD/ML/Microscopy Hackathon 2025/QuaternaryAlloyMoWSSe-20251216T170946Z-1-001/testfile'  # Folder containing .dm3 files
+# OUTPUT_ROOT = '/Users/George/Desktop/PhD/ML/Microscopy Hackathon 2025/QuaternaryAlloyMoWSSe-20251216T170946Z-1-001/atom-analysis-test'
 INPUT_FOLDER = '/Users/George/Desktop/PhD/ML/Microscopy Hackathon 2025/QuaternaryAlloyMoWSSe-20251216T170946Z-1-001/QuaternaryAlloyMoWSSe'  # Folder containing .dm3 files
 OUTPUT_ROOT = '/Users/George/Desktop/PhD/ML/Microscopy Hackathon 2025/QuaternaryAlloyMoWSSe-20251216T170946Z-1-001/atom-analysis-DOG'
+
 
 # Image Enhancement Parameters
 CLAHE_CLIP_LIMIT = 0.03
 CLAHE_TILE_SIZE = 8
 GAUSSIAN_BLUR_SIGMA = 1
-BKGD_NORMALIZATION_SIZE = 15
+BKGD_NORMALIZATION_SIZE = 480 #picometers
 
 # Atom Detection Parameters
 PEAK_RADIUS = 2
-PEAK_THRESHOLD = 0.02
+PEAK_THRESHOLD = 0.03
 MIN_SIGMA = 32 #min stdev of a gaussian to fit on an atom, picometers
 MAX_SIGMA = 50 #max stdev of a gaussian to fit on an atom, picometers
 
@@ -90,7 +92,7 @@ def enhance_image(image):
 
 def normalize_bkgd(image, size):
     eps = 1e-6
-    local_std = generic_filter(image, np.std, size=15)
+    local_std = generic_filter(image, np.std, size=size)
     normalized = image / (local_std + eps)
     return normalized
 
@@ -410,8 +412,9 @@ def process_single_file(file_path, output_base_folder):
     # print(f"  > Enhancing image...")
     # image_enhanced = enhance_image(image)
 
-    print(f"  > Normalizing image")
-    image_enhanced = normalize_bkgd(image_enhanced, BKGD_NORMALIZATION_SIZE)
+    # Found DoG seems to work better w/out normalization 
+    # print(f"  > Normalizing image")
+    # image_enhanced = normalize_bkgd(image_enhanced, round(BKGD_NORMALIZATION_SIZE / cal_pm))
 
     print(f"  > Detecting atoms...")
     atoms = detect_atoms(image_enhanced, MIN_SIGMA / cal_pm, MAX_SIGMA / cal_pm, PEAK_THRESHOLD)
