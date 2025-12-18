@@ -36,16 +36,16 @@ warnings.filterwarnings("ignore")
 # ============================================================================
 
 # I/O Settings
-INPUT_FOLDER = '/Users/George/Desktop/PhD/ML/Microscopy Hackathon 2025/QuaternaryAlloyMoWSSe-20251216T170946Z-1-001/testfile'  # Folder containing .dm3 files
-OUTPUT_ROOT = '/Users/George/Desktop/PhD/ML/Microscopy Hackathon 2025/QuaternaryAlloyMoWSSe-20251216T170946Z-1-001/atom-analysis-test'
-# INPUT_FOLDER = '/Users/George/Desktop/PhD/ML/Microscopy Hackathon 2025/QuaternaryAlloyMoWSSe-20251216T170946Z-1-001/QuaternaryAlloyMoWSSe'  # Folder containing .dm3 files
-# OUTPUT_ROOT = '/Users/George/Desktop/PhD/ML/Microscopy Hackathon 2025/QuaternaryAlloyMoWSSe-20251216T170946Z-1-001/atom-analysis-DOG'
+# INPUT_FOLDER = '/Users/George/Desktop/PhD/ML/Microscopy Hackathon 2025/QuaternaryAlloyMoWSSe-20251216T170946Z-1-001/testfile'  # Folder containing .dm3 files
+# OUTPUT_ROOT = '/Users/George/Desktop/PhD/ML/Microscopy Hackathon 2025/QuaternaryAlloyMoWSSe-20251216T170946Z-1-001/atom-analysis-test'
+INPUT_FOLDER = '/Users/George/Desktop/PhD/ML/Microscopy Hackathon 2025/QuaternaryAlloyMoWSSe-20251216T170946Z-1-001/QuaternaryAlloyMoWSSe'  # Folder containing .dm3 files
+OUTPUT_ROOT = '/Users/George/Desktop/PhD/ML/Microscopy Hackathon 2025/QuaternaryAlloyMoWSSe-20251216T170946Z-1-001/atom-analysis'
 
 # Diagnostic plots
 DIAGNOSTIC_PLOTS = True
 
 # Merge Stacks
-MERGE_STACKS = False
+MERGE_STACKS = True
 
 # Image Enhancement Parameters
 CLAHE_CLIP_LIMIT = 0.03
