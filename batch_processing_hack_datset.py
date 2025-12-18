@@ -13,6 +13,7 @@ import glob
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Circle
+from matplotlib.collections import PatchCollection
 from skimage.feature import peak_local_max, blob_dog
 from skimage.filters import gaussian
 from scipy.ndimage import generic_filter
@@ -33,10 +34,10 @@ warnings.filterwarnings("ignore")
 # ============================================================================
 
 # I/O Settings
-INPUT_FOLDER = '/Users/George/Desktop/PhD/ML/Microscopy Hackathon 2025/QuaternaryAlloyMoWSSe-20251216T170946Z-1-001/testfile'  # Folder containing .dm3 files
-OUTPUT_ROOT = '/Users/George/Desktop/PhD/ML/Microscopy Hackathon 2025/QuaternaryAlloyMoWSSe-20251216T170946Z-1-001/atom-analysis-test'
-# INPUT_FOLDER = '/Users/George/Desktop/PhD/ML/Microscopy Hackathon 2025/QuaternaryAlloyMoWSSe-20251216T170946Z-1-001/QuaternaryAlloyMoWSSe'  # Folder containing .dm3 files
-# OUTPUT_ROOT = '/Users/George/Desktop/PhD/ML/Microscopy Hackathon 2025/QuaternaryAlloyMoWSSe-20251216T170946Z-1-001/atom-analysis-DOG'
+# INPUT_FOLDER = '/Users/George/Desktop/PhD/ML/Microscopy Hackathon 2025/QuaternaryAlloyMoWSSe-20251216T170946Z-1-001/testfile'  # Folder containing .dm3 files
+# OUTPUT_ROOT = '/Users/George/Desktop/PhD/ML/Microscopy Hackathon 2025/QuaternaryAlloyMoWSSe-20251216T170946Z-1-001/atom-analysis-test'
+INPUT_FOLDER = '/Users/George/Desktop/PhD/ML/Microscopy Hackathon 2025/QuaternaryAlloyMoWSSe-20251216T170946Z-1-001/QuaternaryAlloyMoWSSe'  # Folder containing .dm3 files
+OUTPUT_ROOT = '/Users/George/Desktop/PhD/ML/Microscopy Hackathon 2025/QuaternaryAlloyMoWSSe-20251216T170946Z-1-001/atom-analysis-DOG'
 
 
 # Image Enhancement Parameters
@@ -47,7 +48,7 @@ BKGD_NORMALIZATION_SIZE = 480 #picometers
 
 # Atom Detection Parameters
 PEAK_RADIUS = 2
-PEAK_THRESHOLD = 0.03
+PEAK_THRESHOLD = 0.02
 MIN_SIGMA = 32 #min stdev of a gaussian to fit on an atom, picometers
 MAX_SIGMA = 50 #max stdev of a gaussian to fit on an atom, picometers
 
@@ -240,10 +241,24 @@ def save_all_plots(output_folder, filename_base, image, image_enhanced, atoms,
     plt.close()
 
     # 2. Detected Atoms
+    # fig, ax = plt.subplots(1, 1, figsize=(10, 10), dpi=FIGURE_DPI)
+    # ax.imshow(image_enhanced, cmap='gray')
+    # for a in atoms:
+    #     ax.add_patch(Circle((a[1], a[0]), radius=2*a[2], color='red', fill=False))
+    # ax.set_title(f"Detected {len(atoms)} Atoms")
+    # ax.axis('off')
+    # plt.tight_layout()
+    # plt.savefig(os.path.join(output_folder, '02_atoms.png'))
+    # plt.close()
+
     fig, ax = plt.subplots(1, 1, figsize=(10, 10), dpi=FIGURE_DPI)
-    ax.imshow(image_enhanced, cmap='gray')
-    for a in atoms:
-        ax.add_patch(Circle((a[1], a[0]), radius=2*a[2], color='red', fill=False))
+    ax.imshow(image_enhanced, cmap='gray')  
+
+    # Create all patches at once
+    circles = [Circle((a[1], a[0]), radius=2*a[2]) for a in atoms]
+    collection = PatchCollection(circles, facecolors='none', edgecolors='red', linewidths=1)
+    ax.add_collection(collection)
+
     ax.set_title(f"Detected {len(atoms)} Atoms")
     ax.axis('off')
     plt.tight_layout()
@@ -284,10 +299,20 @@ def save_all_plots(output_folder, filename_base, image, image_enhanced, atoms,
     ax1.set_title("Input")
     ax1.axis('off')
 
+    # ax2 = fig.add_subplot(gs[0, 1])
+    # ax2.imshow(image_enhanced, cmap='gray')
+    # for a in atoms:
+    #     ax2.add_patch(Circle((a[1], a[0]), radius=2*a[2], color='red', fill=False, alpha=0.5))
+    # ax2.set_title(f"Detected Atoms (n={len(atoms)})")
+    # ax2.axis('off')
     ax2 = fig.add_subplot(gs[0, 1])
     ax2.imshow(image_enhanced, cmap='gray')
-    for a in atoms:
-        ax2.add_patch(Circle((a[1], a[0]), radius=PEAK_RADIUS, color='red', fill=False, alpha=0.5))
+
+    circles = [Circle((a[1], a[0]), radius=2*a[2]) for a in atoms]
+    collection = PatchCollection(circles, facecolors='none', edgecolors='red', 
+                                linewidths=1, alpha=0.5)
+    ax2.add_collection(collection)
+
     ax2.set_title(f"Detected Atoms (n={len(atoms)})")
     ax2.axis('off')
 

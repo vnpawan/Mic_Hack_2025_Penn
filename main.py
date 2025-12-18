@@ -5,6 +5,7 @@ from torch.optim.adam import Adam
 import torchmetrics
 import segmentation_models_pytorch as smp
 import lightning as L
+from STEMDataset import STEMDataset
 
 
 import UNets
@@ -30,15 +31,15 @@ in_channels = 1
 classes = 4
 model = UNets.efficientnetb5(in_channels=in_channels, classes=classes)
 
-inputDim = 1024
-batchSize = 32
+inputDim = 512
+batchSize = 1
 epochs = 1
 
 weights = torch.tensor([1,1,1,1], dtype=torch.float32)
 criterion = torch.nn.BCELoss(weight=weights, reduction='mean')
 optimizer = Adam(model.parameters(), lr=1e-3)
 
-trainDataset = ""
+trainDataset = STEMDataset("/Users/George/Desktop/PhD/ML/Microscopy Hackathon 2025/QuaternaryAlloyMoWSSe-20251216T170946Z-1-001/QuaternaryAlloyMoWSSe")
 testDataset = ""
 
 trainloader = DataLoader(trainDataset, num_workers=4, shuffle=True, batch_size=batchSize)
@@ -79,5 +80,5 @@ defectSegmentation = LitDefectSegmentation(model)
 
 trainer = L.Trainer(limit_train_batches= batchSize, max_epochs=1)
 trainer.fit(model=defectSegmentation, train_dataloaders=trainloader)
-trainer.test(model=defectSegmentation, dataloaders=testloader)
+# trainer.test(model=defectSegmentation, dataloaders=testloader)
 
