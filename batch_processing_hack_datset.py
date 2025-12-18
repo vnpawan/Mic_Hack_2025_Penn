@@ -34,11 +34,16 @@ warnings.filterwarnings("ignore")
 # ============================================================================
 
 # I/O Settings
-# INPUT_FOLDER = '/Users/George/Desktop/PhD/ML/Microscopy Hackathon 2025/QuaternaryAlloyMoWSSe-20251216T170946Z-1-001/testfile'  # Folder containing .dm3 files
-# OUTPUT_ROOT = '/Users/George/Desktop/PhD/ML/Microscopy Hackathon 2025/QuaternaryAlloyMoWSSe-20251216T170946Z-1-001/atom-analysis-test'
-INPUT_FOLDER = '/Users/George/Desktop/PhD/ML/Microscopy Hackathon 2025/QuaternaryAlloyMoWSSe-20251216T170946Z-1-001/QuaternaryAlloyMoWSSe'  # Folder containing .dm3 files
-OUTPUT_ROOT = '/Users/George/Desktop/PhD/ML/Microscopy Hackathon 2025/QuaternaryAlloyMoWSSe-20251216T170946Z-1-001/atom-analysis-DOG'
+INPUT_FOLDER = '/Users/George/Desktop/PhD/ML/Microscopy Hackathon 2025/QuaternaryAlloyMoWSSe-20251216T170946Z-1-001/testfile'  # Folder containing .dm3 files
+OUTPUT_ROOT = '/Users/George/Desktop/PhD/ML/Microscopy Hackathon 2025/QuaternaryAlloyMoWSSe-20251216T170946Z-1-001/atom-analysis-test'
+# INPUT_FOLDER = '/Users/George/Desktop/PhD/ML/Microscopy Hackathon 2025/QuaternaryAlloyMoWSSe-20251216T170946Z-1-001/QuaternaryAlloyMoWSSe'  # Folder containing .dm3 files
+# OUTPUT_ROOT = '/Users/George/Desktop/PhD/ML/Microscopy Hackathon 2025/QuaternaryAlloyMoWSSe-20251216T170946Z-1-001/atom-analysis-DOG'
 
+# Diagnostic plots
+DIAGNOSTIC_PLOTS = True
+
+# Merge Stacks
+MERGE_STACKS = False
 
 # Image Enhancement Parameters
 CLAHE_CLIP_LIMIT = 0.03
@@ -48,7 +53,7 @@ BKGD_NORMALIZATION_SIZE = 480 #picometers
 
 # Atom Detection Parameters
 PEAK_RADIUS = 2
-PEAK_THRESHOLD = 0.02
+PEAK_THRESHOLD = 0.04
 MIN_SIGMA = 32 #min stdev of a gaussian to fit on an atom, picometers
 MAX_SIGMA = 50 #max stdev of a gaussian to fit on an atom, picometers
 
@@ -237,20 +242,10 @@ def save_all_plots(output_folder, filename_base, image, image_enhanced, atoms,
     ax[1].set_title("Enhanced")
     ax[1].axis('off')
     plt.tight_layout()
-    plt.savefig(os.path.join(output_folder, '01_enhancement.png'))
+    plt.savefig(os.path.join(output_folder, '01_enhancement' + filename_base + '.png'))
     plt.close()
 
     # 2. Detected Atoms
-    # fig, ax = plt.subplots(1, 1, figsize=(10, 10), dpi=FIGURE_DPI)
-    # ax.imshow(image_enhanced, cmap='gray')
-    # for a in atoms:
-    #     ax.add_patch(Circle((a[1], a[0]), radius=2*a[2], color='red', fill=False))
-    # ax.set_title(f"Detected {len(atoms)} Atoms")
-    # ax.axis('off')
-    # plt.tight_layout()
-    # plt.savefig(os.path.join(output_folder, '02_atoms.png'))
-    # plt.close()
-
     fig, ax = plt.subplots(1, 1, figsize=(10, 10), dpi=FIGURE_DPI)
     ax.imshow(image_enhanced, cmap='gray')  
 
@@ -262,7 +257,7 @@ def save_all_plots(output_folder, filename_base, image, image_enhanced, atoms,
     ax.set_title(f"Detected {len(atoms)} Atoms")
     ax.axis('off')
     plt.tight_layout()
-    plt.savefig(os.path.join(output_folder, '02_atoms.png'))
+    plt.savefig(os.path.join(output_folder, '02_atoms' + filename_base + '.png'))
     plt.close()
 
     # 3. Distance Map
@@ -273,7 +268,7 @@ def save_all_plots(output_folder, filename_base, image, image_enhanced, atoms,
     ax.set_title("Distance Map")
     ax.axis('off')
     plt.tight_layout()
-    plt.savefig(os.path.join(output_folder, '03_distance_map.png'))
+    plt.savefig(os.path.join(output_folder, '03_distance_map' + filename_base + '.png'))
     plt.close()
 
     # 4. Distance Histogram
@@ -287,7 +282,7 @@ def save_all_plots(output_folder, filename_base, image, image_enhanced, atoms,
     ax.legend(fontsize=11)
     ax.grid(True, alpha=0.3)
     plt.tight_layout()
-    plt.savefig(os.path.join(output_folder, '04_histogram.png'))
+    plt.savefig(os.path.join(output_folder, '04_histogram' + filename_base + '.png'))
     plt.close()
 
     # 5. Summary Composite
@@ -299,12 +294,6 @@ def save_all_plots(output_folder, filename_base, image, image_enhanced, atoms,
     ax1.set_title("Input")
     ax1.axis('off')
 
-    # ax2 = fig.add_subplot(gs[0, 1])
-    # ax2.imshow(image_enhanced, cmap='gray')
-    # for a in atoms:
-    #     ax2.add_patch(Circle((a[1], a[0]), radius=2*a[2], color='red', fill=False, alpha=0.5))
-    # ax2.set_title(f"Detected Atoms (n={len(atoms)})")
-    # ax2.axis('off')
     ax2 = fig.add_subplot(gs[0, 1])
     ax2.imshow(image_enhanced, cmap='gray')
 
@@ -336,7 +325,7 @@ def save_all_plots(output_folder, filename_base, image, image_enhanced, atoms,
     ax4.axis('off')
 
     plt.tight_layout()
-    plt.savefig(os.path.join(output_folder, '05_summary.png'))
+    plt.savefig(os.path.join(output_folder, '05_summary' + filename_base + '.png'))
     plt.close()
 
 
@@ -395,50 +384,13 @@ def save_csv_output(output_folder, filename_base, atoms, nn_results,
 # MAIN PROCESS
 # ============================================================================
 
-def process_single_file(file_path, output_base_folder):
-    """Process a single .dm3/.dm4 file"""
-    filename = os.path.basename(file_path)
-    filename_no_ext = os.path.splitext(filename)[0]
-
-    # Output folder for THIS image
-    file_output_folder = os.path.join(output_base_folder, filename_no_ext)
-    os.makedirs(file_output_folder, exist_ok=True)
-
-    print(f"\n[{filename}] Loading...")
-    try:
-        data_obj = hs.load(file_path)
-    except Exception as e:
-        print(f"  > Error loading {filename}: {str(e)}")
-        return
-
-    # Get calibration
-    if data_obj.data.ndim > 2:
-        cal = data_obj.axes_manager[2].scale
-    else:
-        cal = data_obj.axes_manager[1].scale
-
-    # Check for manual calibration override
-    if filename_no_ext in MANUAL_CALIBRATIONS:
-        cal_original = cal
-        cal = MANUAL_CALIBRATIONS[filename_no_ext]
-        print(f"  > Calibration OVERRIDDEN: {cal_original:.4f} -> {cal:.4f} nm/px")
-    else:
-        print(f"  > Calibration: {cal:.4f} nm/px", end="")
-
-    cal_pm = cal * 1000
-    print(f" = {cal_pm:.2f} pm/px")
-
-    # Handle stack vs single image
-    if data_obj.data.ndim == 3:
-        print(f"  > Summing stack ({data_obj.data.shape[0]} images)")
-        image = np.sum(data_obj.data, axis=0)
-    else:
-        image = data_obj.data
-
+def process_image(image, cal, file_output_folder, filename_no_ext):
     # Save original image at full resolution
     original_path = os.path.join(file_output_folder, f'{filename_no_ext}_original.png')
     plt.imsave(original_path, image, cmap='gray')
     print(f"  > Saved original image: {filename_no_ext}_original.png")
+
+    cal_pm = cal*1e3
 
     # Pipeline
     image_enhanced = image
@@ -486,12 +438,64 @@ def process_single_file(file_path, output_base_folder):
     print(f"    Max:  {avg_distances.max():.2f} px ({avg_distances.max() * cal_pm:.1f} pm)")
 
     # Save CSV
-    csv_path = save_csv_output(file_output_folder, filename_no_ext, atoms, nn_res,
+    save_csv_output(file_output_folder, filename_no_ext, atoms, nn_res,
                                angles_list, intensities, cal, cal_pm)
 
     # Save all diagnostic plots
-    save_all_plots(file_output_folder, filename_no_ext, image, image_enhanced,
-                   atoms, avg_distances, cal_pm)
+    if DIAGNOSTIC_PLOTS:
+        save_all_plots(file_output_folder, filename_no_ext, image, image_enhanced,
+                        atoms, avg_distances, cal_pm)
+
+def process_single_file(file_path, output_base_folder):
+    """Process a single .dm3/.dm4 file"""
+    filename = os.path.basename(file_path)
+    filename_no_ext = os.path.splitext(filename)[0]
+
+    # Output folder for THIS file
+    file_output_folder = os.path.join(output_base_folder, filename_no_ext)
+    os.makedirs(file_output_folder, exist_ok=True)
+
+    print(f"\n[{filename}] Loading...")
+    try:
+        data_obj = hs.load(file_path)
+    except Exception as e:
+        print(f"  > Error loading {filename}: {str(e)}")
+        return
+
+    # Get calibration
+    if data_obj.data.ndim > 2:
+        cal = data_obj.axes_manager[2].scale
+    else:
+        cal = data_obj.axes_manager[1].scale
+
+    # Check for manual calibration override
+    if filename_no_ext in MANUAL_CALIBRATIONS:
+        cal_original = cal
+        cal = MANUAL_CALIBRATIONS[filename_no_ext]
+        print(f"  > Calibration OVERRIDDEN: {cal_original:.4f} -> {cal:.4f} nm/px")
+    else:
+        print(f"  > Calibration: {cal:.4f} nm/px", end="")
+
+    cal_pm = cal * 1000
+    print(f" = {cal_pm:.2f} pm/px")
+
+    # Handle stack vs single image
+
+    if data_obj.data.ndim == 3:
+        if MERGE_STACKS:
+            print(f"  > Summing stack ({data_obj.data.shape[0]} images)")
+            image = np.sum(data_obj.data, axis=0)
+            process_image(image, cal, file_output_folder, filename_no_ext)
+        else:
+            for i in range(data_obj.data.shape[0]):
+                image = data_obj.data[i,:,:]
+                filename_numbered = filename_no_ext + f"_{i}"
+                process_image(image, cal, file_output_folder, filename_numbered)
+    else:
+        image = data_obj.data
+        process_image(image, cal, file_output_folder, filename_no_ext)
+    
+        
 
     print(f"  > Processing complete for {filename}")
 
