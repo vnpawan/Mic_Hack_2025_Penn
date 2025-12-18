@@ -109,13 +109,6 @@ def normalize_bkgd(image, size):
     normalized = image / (local_std + eps)
     return normalized
 
-# def detect_atoms(image, radius, threshold):
-#     """Detect atom positions using peak detection"""
-#     out = peak_local_max(image, min_distance=radius,
-#                           threshold_rel=threshold, exclude_border=True)
-#     print(out)
-#     return out
-
 
 def detect_atoms(image, min_sigma, max_sigma, threshold):
     """Detect atom positions using peak detection"""
@@ -569,8 +562,6 @@ def process_single_file(file_path, output_base_folder):
         image = data_obj.data
         process_image(image, cal, file_output_folder, filename_no_ext)
     
-        
-
     print(f"  > Processing complete for {filename}")
 
 
