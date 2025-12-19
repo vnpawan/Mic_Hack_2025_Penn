@@ -40,7 +40,7 @@ These defect motifs and their local geometric signatures are motivated by prior 
 
 For each atom, we compute the three NN distances $(l_1, l_2, l_3)$ and sort them from smallest to largest. We use:
 
-- $a = 183 \mathrm{pm}$
+- $a = 183 \mathrm{pm}$ (ideal bond length)
 - $\varepsilon = 0.25a$
 - $\delta = 0.4a$
 - $\Delta = 0.4a$
@@ -88,3 +88,4 @@ Example overlay showing atom-level defect labels for dataset `3D Stack align2`:
 [1] Komsa, H. P., & Krasheninnikov, A. V. (2015). Native defects in bulk and monolayer MoS 2 from first principles. Physical Review B, 91(12), 125304.
 
 [2] Santosh, K. C., Longo, R. C., Addou, R., Wallace, R. M., & Cho, K. (2014). Impact of intrinsic atomic defects on the electronic structure of MoS2 monolayers. Nanotechnology, 25(37), 375703.
+
