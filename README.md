@@ -7,7 +7,7 @@ Step 0: Download the 3D stacks image dataset from (https://doi.ccs.ornl.gov/data
 Step 1: Run batch_processing_hack_datset.py on the folder containing dm3 files\
 Step 2: Run defect_classification.py\
 Step 3: Run intensity_classification.py\
-Step 4: Run summary_plots.py\
+Step 4: Run summary_plots.py
 
 ## Atom Detection
 
@@ -95,6 +95,7 @@ Example overlay showing atom-level defect labels for dataset `3D Stack align2`:
 [1] Komsa, H. P., & Krasheninnikov, A. V. (2015). Native defects in bulk and monolayer MoS 2 from first principles. Physical Review B, 91(12), 125304.
 
 [2] Santosh, K. C., Longo, R. C., Addou, R., Wallace, R. M., & Cho, K. (2014). Impact of intrinsic atomic defects on the electronic structure of MoS2 monolayers. Nanotechnology, 25(37), 375703.
+
 
 
 
