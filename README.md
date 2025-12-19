@@ -2,6 +2,13 @@
 
 This project focuses on classifying defects and elements in the Quanternary MoSWSe Alloy system data from Jordan Hachtel. It uses extracted atom positions to compute nearest neighbor distances and angles for each atom. Defects are identified and classified using this local bonding geometry. Then, a combination of intensity and lattice site analysis predict the elemental identity of each atom. 
 
+The broad workflow is as follows:
+Step 0: Download the 3D stacks image dataset from (https://doi.ccs.ornl.gov/dataset/78833284-28a4-59da-9790-3624a6f8b9e3)
+Step 1: Run batch_processing_hack_datset.py on the folder containing dm3 files
+Step 2: Run defect_classification.py
+Step 3: Run intensity_classification.py
+Step 4: Run summary_plots.py 
+
 ## Atom Detection
 
 Atoms positions are extracted using the a blob identification Difference of Gaussians (DoG) method. DoG is a spatial band-pass filter that uses a 2D Gaussian kernel $G_\sigma$ with standard deviation $\sigma$ convolved with a 2D image $I$. A Gaussian blurred image $G_{\sigma_1} \cdot I$ is subtracted from another Gaussian blurried image $G_{\sigma_2} \cdot I$ where $\sigma_2 > \sigma_1$. The ratio $\sigma_2:\sigma_1 = k$ is generally set at a value of 1.6 to approximate the computationally intensive Laplacian of Gaussian (LoG) method. The complete expression reads
@@ -88,5 +95,6 @@ Example overlay showing atom-level defect labels for dataset `3D Stack align2`:
 [1] Komsa, H. P., & Krasheninnikov, A. V. (2015). Native defects in bulk and monolayer MoS 2 from first principles. Physical Review B, 91(12), 125304.
 
 [2] Santosh, K. C., Longo, R. C., Addou, R., Wallace, R. M., & Cho, K. (2014). Impact of intrinsic atomic defects on the electronic structure of MoS2 monolayers. Nanotechnology, 25(37), 375703.
+
 
 
