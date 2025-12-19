@@ -1,5 +1,4 @@
 
-
 """
 Atom Analysis Pipeline - Refactored
 Process multiple image files, detect atoms, and classify elements
@@ -124,6 +123,7 @@ FILES_TO_PROCESS = [
     "HAADF-89245"
 ]
 
+
 # Files to use for global fitting - MODIFY THIS LIST (OPTIONAL)
 # If empty or None, all files in FILES_TO_PROCESS will be used for fitting
 # Otherwise, specify which subset to use for global fitting
@@ -228,6 +228,13 @@ def bi_gaussian(x, a1, m1, s1, a2, m2, s2):
     return gaussian(x, a1, m1, s1) + gaussian(x, a2, m2, s2)
 
 
+def bi_gaussian_fixed_means(x, a1, s1, a2, s2):
+    """Sum of two Gaussians with FIXED means at 0.3 and 0.8"""
+    m1 = 0.3  # Fixed mean for Peak 1
+    m2 = 0.8  # Fixed mean for Peak 2
+    return gaussian(x, a1, m1, s1) + gaussian(x, a2, m2, s2)
+
+
 def tri_gaussian(x, a1, m1, s1, a2, m2, s2, a3, m3, s3):
     """Sum of three Gaussians for B-site fitting"""
     return (gaussian(x, a1, m1, s1) +
@@ -296,7 +303,7 @@ def extract_intensities(normalized, Aatoms, Batoms):
     return Aint, Bint
 
 
-def fit_histogram(intensities, num_peaks, initial_guess):
+def fit_histogram(intensities, num_peaks, initial_guess, fix_means=False):
     """
     Fit histogram with multiple Gaussian peaks
 
@@ -304,6 +311,7 @@ def fit_histogram(intensities, num_peaks, initial_guess):
         intensities: list of intensity values
         num_peaks: number of Gaussian peaks to fit (2 or 3)
         initial_guess: list of initial parameters [amp, mean, sigma] for each peak
+        fix_means: if True and num_peaks==2, fix A-site means at 0.3 and 0.8
 
     Returns:
         popt: optimized parameters
@@ -316,16 +324,68 @@ def fit_histogram(intensities, num_peaks, initial_guess):
 
     # Choose the appropriate function
     if num_peaks == 2:
-        fit_func = bi_gaussian
+        if fix_means:
+            # Use fixed means version - only fit amplitudes and sigmas
+            fit_func = bi_gaussian_fixed_means
+            # Initial guess: [a1, s1, a2, s2] (no means)
+            initial_guess_fixed = [initial_guess[0], initial_guess[2],
+                                   initial_guess[3], initial_guess[5]]
+            lower_bounds = [0, 0.01, 0, 0.01]  # amp >= 0, sigma >= 0.01
+            upper_bounds = [np.inf, 0.3, np.inf, 0.3]  # sigma <= 0.3
+
+            try:
+                popt, pcov = curve_fit(fit_func, bin_centers, counts,
+                                       p0=initial_guess_fixed,
+                                       bounds=(lower_bounds, upper_bounds),
+                                       maxfev=10000)
+            except RuntimeError as e:
+                print(f"  Warning: Fit failed - {e}")
+                popt = initial_guess_fixed
+                pcov = None
+
+            # Expand popt to include fixed means for consistency
+            # [a1, m1, s1, a2, m2, s2]
+            popt_full = [popt[0], 0.3, popt[1], popt[2], 0.8, popt[3]]
+            return popt_full, pcov, bin_centers, counts
+        else:
+            fit_func = bi_gaussian
     elif num_peaks == 3:
         fit_func = tri_gaussian
     else:
         raise ValueError("num_peaks must be 2 or 3")
 
+    # Set up bounds to ensure peak separation (for non-fixed case)
+    lower_bounds = []
+    upper_bounds = []
+
+    if num_peaks == 2 and not fix_means:
+        # For 2 peaks: ensure they're separated, Peak 2 around 0.8
+        lower_bounds = [
+            0, 0.0, 0.01,  # Peak 1: amp >= 0, mean >= 0, sigma >= 0.01
+            0, 0.5, 0.01  # Peak 2: amp >= 0, mean >= 0.5, sigma >= 0.01
+        ]
+        upper_bounds = [
+            np.inf, 0.6, 0.3,  # Peak 1: mean <= 0.6, sigma <= 0.3
+            np.inf, 1.0, 0.3  # Peak 2: mean <= 1.0, sigma <= 0.3
+        ]
+    elif num_peaks == 3:
+        # For 3 peaks: ensure progressive separation
+        lower_bounds = [
+            0, 0.0, 0.01,  # Peak 1: lowest intensity
+            0, 0.2, 0.01,  # Peak 2: middle intensity
+            0, 0.4, 0.01  # Peak 3: highest intensity
+        ]
+        upper_bounds = [
+            np.inf, 0.3, 0.3,  # Peak 1: mean <= 0.3
+            np.inf, 0.5, 0.3,  # Peak 2: mean <= 0.5
+            np.inf, 1.0, 0.3  # Peak 3: mean <= 1.0
+        ]
+
     # Perform fit
     try:
         popt, pcov = curve_fit(fit_func, bin_centers, counts,
-                               p0=initial_guess, bounds=(0, np.inf))
+                               p0=initial_guess, bounds=(lower_bounds, upper_bounds),
+                               maxfev=10000)
     except RuntimeError as e:
         print(f"  Warning: Fit failed - {e}")
         popt = initial_guess
@@ -651,14 +711,21 @@ def process_single_file(item, input_folder, output_folder, file_id,
 
     # Fit histograms if not using global fit
     if not use_global_fit:
-        print(f"  > Fitting A-site histogram (2 peaks)...")
-        p0_A = [0.1, 0.3, 0.1, 0.05, 0.8, 0.1]
+        print(f"  > Fitting A-site histogram (2 peaks with FIXED means)...")
+        p0_A = [
+            0.1, 0.3, 0.1,  # Peak 1: lower intensity (fixed at 0.3)
+            0.05, 0.8, 0.1  # Peak 2: higher intensity (fixed at 0.8)
+        ]
         poptA, pcovA, bin_centers_A, counts_A = fit_histogram(
-            Aint_scaled, 2, p0_A
+            Aint_scaled, 2, p0_A, fix_means=True
         )
 
         print(f"  > Fitting B-site histogram (3 peaks)...")
-        p0_B = [0.1, 0.1, 0.1, 0.05, 0.3, 0.1, 0.02, 0.5, 0.1]
+        p0_B = [
+            0.1, 0.2, 0.1,  # Peak 1: low intensity
+            0.1, 0.4, 0.1,  # Peak 2: mid intensity
+            0.05, 0.6, 0.1  # Peak 3: high intensity
+        ]
         poptB, pcovB, bin_centers_B, counts_B = fit_histogram(
             Bint_scaled, 3, p0_B
         )
@@ -723,8 +790,11 @@ def main():
     print("\n" + "=" * 70)
     print("ATOM ANALYSIS PIPELINE - MULTI-FILE PROCESSING")
     print("=" * 70)
+
+    # Create output folder if it doesn't exist
     os.makedirs(OUTPUT_FOLDER, exist_ok=True)
     print(f"\nOutput folder: {OUTPUT_FOLDER}")
+
     # Determine which files to use for fitting
     if not CSV_FILES_FOR_FITTING or len(CSV_FILES_FOR_FITTING) == 0:
         # Use all files for fitting
@@ -793,13 +863,23 @@ def main():
     print("=" * 70)
 
     print(f"\n  > Fitting global A-site histogram (2 peaks)...")
-    p0_A = [0.1, 0.1, 0.1, 0.05, 0.3, 0.1]
+    # A-site with FIXED means at 0.3 and 0.8
+    p0_A = [
+        0.1, 0.3, 0.1,  # Peak 1: amp, mean (will be fixed at 0.3), sigma
+        0.05, 0.8, 0.1  # Peak 2: amp, mean (will be fixed at 0.8), sigma
+    ]
     poptA_global, pcovA_global, bin_centers_A, counts_A = fit_histogram(
-        all_Aint, 2, p0_A
+        all_Aint, 2, p0_A, fix_means=True
     )
+    print(f"    A-site peaks FIXED at means: 0.3 and 0.8")
 
     print(f"\n  > Fitting global B-site histogram (3 peaks)...")
-    p0_B = [0.1, 0.1, 0.1, 0.05, 0.3, 0.1, 0.02, 0.5, 0.1]
+    # Better initial guesses for B-site: three well-separated peaks
+    p0_B = [
+        0.1, 0.2, 0.1,  # Peak 1: low intensity
+        0.1, 0.4, 0.1,  # Peak 2: mid intensity
+        0.05, 0.6, 0.1  # Peak 3: high intensity
+    ]
     poptB_global, pcovB_global, bin_centers_B, counts_B = fit_histogram(
         all_Bint, 3, p0_B
     )
