@@ -156,12 +156,17 @@ Step 4: Results Aggregation
 - Tracks which file each atom came from using file IDs
 - Generates summary statistics including element distributions
 
+The final figure shows the distribution of different elements across the various defects.
+
+<img width="3568" height="2068" alt="element_by_defect_stacked_bar" src="https://github.com/user-attachments/assets/fd4152f5-3cf7-484d-b039-d7e2d6695bfc" />
+
 
 ## References
 
 [1] Komsa, H. P., & Krasheninnikov, A. V. (2015). Native defects in bulk and monolayer MoS 2 from first principles. Physical Review B, 91(12), 125304.
 
 [2] Santosh, K. C., Longo, R. C., Addou, R., Wallace, R. M., & Cho, K. (2014). Impact of intrinsic atomic defects on the electronic structure of MoS2 monolayers. Nanotechnology, 25(37), 375703.
+
 
 
 
